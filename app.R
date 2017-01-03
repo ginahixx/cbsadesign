@@ -9,39 +9,19 @@ library(DT)
 
 # Define the fields we want to save from the form
 fields <- c("ID", "Parameter1", "Savings", "Parameter2","Parameter3")
-#these setting are for bluehost database
-#  options(mysql = list(
-#   "host" = "69.195.124.106",
-#   "port" = 3306,
-#   "user" = "sbwconsu_shiny",
-#   "password" = "shinyuser"
-# ))
-# databaseName <- "sbwconsu_shiny"
-# table <- "sampleframe"
 
  options(mysql = list(
   "host" = "sbwdb.cpbjzli7i42z.us-west-2.rds.amazonaws.com",
   "port" = 3306,
   "user" = "gina",
-  "password" = "highway99."
+  "password" = "CBSA4Funtimes!"
 ))
 databaseName <- "shiny"
 table <- "sampleframe"
-
-# saveData <- function(data) {
-#   data <- as.data.frame(t(data))
-#   if (exists("responses")) {
-#     responses <<- rbind(responses, data)
-#   } else {
-#     responses <<- data
-#   }
-# }
-# 
-# loadData <- function() {
-#   if (exists("responses")) {
-#     responses
-#   }
-# }
+frame<- "tempdata"
+#file<-"P:/Projects/NEEA22 (CBSA Phase 1 Planning)/_04 Assessment of Alternative Designs/Tool/sampledevelopment/mock_pnw_bulding_list.csv"
+file<-"mock_pnw_bulding_list.csv"
+#sampledata<-read.csv(file,nrows = 100)
 
 saveData <- function(data) {
   # Connect to the database
@@ -65,7 +45,7 @@ loadData <- function() {
   db <- dbConnect(MySQL(), dbname = databaseName, host = options()$mysql$host,
                   port = options()$mysql$port, user = options()$mysql$user,
                   password = options()$mysql$password)
-  # Construct the fetching query
+  # Construct the insert query
   query <- sprintf("SELECT * FROM %s", table)
   # Submit the fetch query and disconnect
   data <- dbGetQuery(db, query)
@@ -78,14 +58,30 @@ uploadData <- function() {
   db <- dbConnect(MySQL(), dbname = databaseName, host = options()$mysql$host,
                   port = options()$mysql$port, user = options()$mysql$user,
                   password = options()$mysql$password)
-  # Construct the fetching query
-  query <- sprintf("SELECT * FROM %s", table)
+  #delete any old data
+  query <- sprintf("DELETE FROM %s", frame)
+  #dbGetQuery(db, query)
+  # Construct the update query by looping over the data fields
+  query <- sprintf("LOAD DATA LOCAL INFILE '%s' INTO TABLE %s FIELDS TERMINATED BY ','  LINES TERMINATED BY '\n' IGNORE 1 ROWS;", 
+                   file, frame)
+  # Submit the update query and disconnect
+  dbGetQuery(db, query)
+  dbDisconnect(db)
+}
+
+loadFrame <- function() {
+  # Connect to the database
+  db <- dbConnect(MySQL(), dbname = databaseName, host = options()$mysql$host,
+                  port = options()$mysql$port, user = options()$mysql$user,
+                  password = options()$mysql$password)
+  # Construct the insert query
+  query <- sprintf("SELECT * FROM %s", frame)
   # Submit the fetch query and disconnect
   data <- dbGetQuery(db, query)
   dbDisconnect(db)
   data
 }
-# Shiny app with 3 fields that the user can submit data for
+# Shiny app
 shinyApp(
   ui = fluidPage(
     DT::dataTableOutput("responses", width = 300), tags$hr(),
@@ -96,8 +92,9 @@ shinyApp(
     textInput("Parameter3", "Parameter3", value = ""),
     #sliderInput("r_num_years", "Number of years using R", 0, 25, 2, ticks = FALSE),
     actionButton("submit", "Submit"),
-    textInput("filename", "Table Name", value = ""),
-    actionButton("upload", "Load Data")
+    #textInput("filename", "Table Name", value = ""),
+    actionButton("upload", "Load Data"),
+    DT::dataTableOutput("frame", width = 600), tags$hr()
   ),
   server = function(input, output, session) {
 
@@ -112,9 +109,10 @@ shinyApp(
       saveData(formData())
     })
 
-    # When the Submit button is clicked, save the form data
+    # When the upload button is clicked, load the frame data
     observeEvent(input$upload, {
-      uploadData(formData())
+      #uploadData(formData())
+      uploadData()
     })
     
     # Show the previous responses
@@ -122,6 +120,11 @@ shinyApp(
     output$responses <- DT::renderDataTable({
       input$submit
       loadData()
+    })
+    
+    output$frame <- DT::renderDataTable({
+      input$submit
+      loadFrame()
     })
   }
 )
