@@ -73,6 +73,18 @@ loadData <- function() {
   data
 }
 
+uploadData <- function() {
+  # Connect to the database
+  db <- dbConnect(MySQL(), dbname = databaseName, host = options()$mysql$host,
+                  port = options()$mysql$port, user = options()$mysql$user,
+                  password = options()$mysql$password)
+  # Construct the fetching query
+  query <- sprintf("SELECT * FROM %s", table)
+  # Submit the fetch query and disconnect
+  data <- dbGetQuery(db, query)
+  dbDisconnect(db)
+  data
+}
 # Shiny app with 3 fields that the user can submit data for
 shinyApp(
   ui = fluidPage(
@@ -83,7 +95,9 @@ shinyApp(
     textInput("Parameter2", "Parameter2", value ="" ),
     textInput("Parameter3", "Parameter3", value = ""),
     #sliderInput("r_num_years", "Number of years using R", 0, 25, 2, ticks = FALSE),
-    actionButton("submit", "Submit")
+    actionButton("submit", "Submit"),
+    textInput("filename", "Table Name", value = ""),
+    actionButton("upload", "Load Data")
   ),
   server = function(input, output, session) {
 
@@ -98,6 +112,11 @@ shinyApp(
       saveData(formData())
     })
 
+    # When the Submit button is clicked, save the form data
+    observeEvent(input$upload, {
+      uploadData(formData())
+    })
+    
     # Show the previous responses
     # (update with current response when Submit is clicked)
     output$responses <- DT::renderDataTable({
